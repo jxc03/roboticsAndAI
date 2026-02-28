@@ -61,7 +61,6 @@ source devel/setup.bash
 rospack find com760cw1_b00835055
 
 # Package structure should look like this:
-```
 com760cw1_b00835055/
 ├── package.xml
 ├── CMakeLists.txt
@@ -69,4 +68,3 @@ com760cw1_b00835055/
 ├── scripts/         # Python nodes go here
 ├── msg/             # custom message definitions
 └── srv/             # custom service definitions
-```
