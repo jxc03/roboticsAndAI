@@ -68,3 +68,49 @@ com760cw1_b00835055/
 ├── scripts/         # Python nodes go here
 ├── msg/             # custom message definitions
 └── srv/             # custom service definitions
+```
+
+## Setting Up Git & Github
+
+1. Config git with details
+```
+git config --global user.name "Name"
+git config --global user.email "Email Address"
+```
+
+2. Initialise git
+```
+cd ~/com760_ws/src/com760cw1_b00835055 # Get to this directory
+
+# Initialise the repo
+git init
+
+# Create a .gitignore to not commit build artifacts
+cat > .gitignore << 'EOF'
+
+# Catkin build artifacts
+build/
+devel/
+logs/
+*.pyc
+__pycache__/
+.catkin_workspace
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*~
+EOF
+
+# Stage everything
+git add .
+
+# First commit
+git commit -m "Adding Git"
+
+# Had to clone the repo, copy the workspace to the folder, fill username and password
+
+# Push
+git push
+```
