@@ -59,9 +59,8 @@ source devel/setup.bash
 
 # Verify
 rospack find com760cw1_b00835055
-```
 
-Package structure should look like this:
+# Package structure should look like this:
 ```
 com760cw1_b00835055/
 ├── package.xml
