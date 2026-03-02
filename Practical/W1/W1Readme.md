@@ -75,7 +75,7 @@ rostopic pub -r 1 /turtle1/cmd_vel geometry_msgs/Twist \
 ```
 rosservice list
 ```
-- The important ones for CW1 are:
+- The important ones for CW1 are: <br>
 | Left         | Centered         | Right                      |
 | :-----------: | :--------------: | :-------------------------: |
 | /spawn | Text is centered | And this is right-aligned  |
