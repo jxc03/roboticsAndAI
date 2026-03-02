@@ -114,3 +114,29 @@ git commit -m "Adding Git"
 # Push
 git push
 ```
+
+## Launch Files, Services & Spawning
+
+1. Create first launch file
+```
+cd ~/com760_ws/src/com760cw1_b00835055/launch
+gedit turtlesim_basics.launch # Creates file
+```
+2. Type into the editor/file
+```
+<launch>
+    <!-- Launch the turtlesim simulator -->
+    <node pkg="turtlesim" type="turtlesim_node" name="turtlesim"/>
+    
+    <!-- Launch keyboard teleop in its own terminal window -->
+    <node pkg="turtlesim" type="turtle_teleop_key" name="teleop" 
+          output="screen" launch-prefix="gnome-terminal --"/>
+</launch>
+```
+- 
+- To edit file `nano FILENAME.launch`
+3. Save and close then stop all runing nodes and test the launch file
+```
+roslaunch com760cw1_yb00835055 turtlesim_basics.launch
+```
+- `roslaunch` starts automatically if it's not already running, both smilulator and teleop should appear
