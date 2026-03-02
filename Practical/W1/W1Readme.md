@@ -69,4 +69,17 @@ rostopic pub -r 1 /turtle1/cmd_vel geometry_msgs/Twist \
 
 # Launch Files, Services & Spawning
 
-## 
+- Continuing from CW1Readme.md under First Launch File(s)
+
+##  Exploring services
+```
+rosservice list
+```
+- The important ones for CW1 are:
+| Left         | Centered         | Right                      |
+| :-----------: | :--------------: | :-------------------------: |
+| /spawn | Text is centered | And this is right-aligned  |
+| /kill    | Even more text   | And even more to the right |
+| /reset    | Even more text   | And even more to the right |
+| /clear    | Even more text   | And even more to the right |
+| /turtle1/set_pan    | Even more text   | And even more to the right |
