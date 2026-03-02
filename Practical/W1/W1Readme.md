@@ -66,3 +66,7 @@ rostopic pub -r 1 /turtle1/cmd_vel geometry_msgs/Twist \
 ```
 - `-r 10` publishes at 1 Hz
 - linear.x controls forward speed, angular.z controls turning rate. If both are non-zero = circle
+
+# Launch Files, Services & Spawning
+
+## 
