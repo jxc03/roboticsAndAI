@@ -50,7 +50,7 @@ cd com760cw1_b0083505560cd
 # Create the required directories
 mkdir -p launch scripts msg srv
 ```
-4. Build everything to make sure it's working
+5. Build everything to make sure it's working
 ```
 # Build and re-source
 ~/com760_ws # Get to this directory .../
