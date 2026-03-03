@@ -1,0 +1,8 @@
+<launch>
+	<!-- Launch the turtlesim simulator -->
+	<node pkg="turtlesim" type="turtlesim_node" name="turtlesim"/>	
+	
+	<!-- Launch keyboard teleop in its own terminal window -->
+	<node pkg="turtlesim" type="turtle_teleop_key" name="teleop" 
+		output="screen" launch-prefix="gnome-terminal --"/>
+</launch>
