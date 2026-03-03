@@ -59,8 +59,8 @@ class LeaderNode:
         
     # Publish a custom leader message on the /leader_message topic
     # Source: W3 Practical Part C - custom message definition
+    # instructionID: 0 = Formation, 1 = Return # 0 = Formation mode, 1 = Return / Boundary hit
     def publish_leader_message(self, instruction_id, message):
-        instructionID: 0 = Formation, 1 = Return # 0 = Formation mode, 1 = Return / Boundary hit
         msg = B00835055LeaderMessage()
         msg.instructionID = instruction_id
         msg.message = message
@@ -129,7 +129,7 @@ class LeaderNode:
             rospy.loginfo("Leader hit boundary at (%.2f, %.2f)",
                           self.pose.x, self.pose.y)
             self.publish_leader_message(1, "Hit boundary - changing direction")
-            rospy.sleep(1) # Brief pause before turning again
+            rospy.sleep(1) # Brief pause before turn  ing again
 
 if __name__ == '__main__':
     try:
