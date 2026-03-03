@@ -1,0 +1,7 @@
+<launch>
+	<!-- Launch the turtlesim simulator first -->
+	<node pkg="turtlesim" type="turtlesim_node" name="turtlesim"/>
+	
+	<!-- Run setup script which kills turtle1, spawns leader + followers -->
+	<node pkg="com760cw1_b00835055" type="setup_turtlesim.py" name="setup_turtlesim" output="screen"/>
+</launch>
