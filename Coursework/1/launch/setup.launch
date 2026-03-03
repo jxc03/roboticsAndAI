@@ -2,6 +2,17 @@
 	<!-- Launch the turtlesim simulator first -->
 	<node pkg="turtlesim" type="turtlesim_node" name="turtlesim"/>
 	
-	<!-- Run setup script which kills turtle1, spawns leader + followers -->
+	<!-- Run setup script which kills turtle1, spawns leader + followers, random background -->
 	<node pkg="com760cw1_b00835055" type="setup_turtlesim.py" name="setup_turtlesim" output="screen"/>
+	
+	<!-- Go-to-target navigation service -->
+    	<node pkg="com760cw1_b00835055" type="go_to_target_service.py"
+         name="go_to_target_service" output="screen"
+         launch-prefix="bash -c 'sleep 5; $0 $@'"/>
+
+    	<!-- Leader control node -->
+    	<node pkg="com760cw1_b00835055" type="leader_node.py"
+         name="leader_node" output="screen"
+         launch-prefix="bash -c 'sleep 6; $0 $@'"/>
+        <!-- The `launch-prefix="bash -c 'sleep 5; $0 $@'"` trick delays those nodes so the setup script finishes first (spawning turtles) before the leader tries to move -->
 </launch>
