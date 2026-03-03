@@ -45,7 +45,7 @@ catkin_create_pkg com760cw1_b00835055 rospy std_msgs geometry_msgs turtlesim mes
 4. Create folder structure
 ```
 # Change directory 
-cd com760cw1_b0083505560cd 
+cd com760cw1_b0083505560
 
 # Create the required directories
 mkdir -p launch scripts msg srv
@@ -77,7 +77,6 @@ com760cw1_b00835055/
 git config --global user.name "Name"
 git config --global user.email "Email Address"
 ```
-
 2. Initialise git
 ```
 cd ~/com760_ws/src/com760cw1_b00835055 # Get to this directory
@@ -219,3 +218,410 @@ roslaunch com760cw1_b00835055 setup.launch
 ```
 - `roslaunch` starts automatically if it's not already running, 3 turtles should appear
 - Ensure indentation is 4, check for green spaces on `nano`
+
+#£ Custom Messages, Services & The Proportional Controller
+
+1. Create the custom message
+```
+# Go to directory
+cd ~/com760_ws/src/com760cw1_b00835055/msg
+
+# Create launch file
+gedit B00835055LeaderMessage.msg
+
+# Inside file:
+int64 instructionID
+string message
+```
+- `int64 instructionID` - An integer that tells followers what to do.
+- `string message` -  A description of the current instruction, useful for debugging and logging.
+2. Create the custom service
+```
+# Go to directory
+cd ~/com760_ws/src/com760cw1_b00835055/srv
+
+# Create launch file
+gedit B00835055GoToTarget.srv
+
+# Inside file:
+float32 goal_x
+float32 goal_y
+float32 tolerance
+string turtle_name
+---
+bool success
+```
+- `---` - Everything above is the Request (what the client sends) and below is the Response (what the server sends back).
+- `float32 goal_x` - target x coordinate on the turtlesim grid (0 to 11)
+- `float32 goal_y` - target y coordinate
+- `float32 tolerance` - how close the turtle needs to get before considering it "arrived" (e.g. 0.5 units)
+- `string turtle_name` - which turtle to move (e.g. "B00835055FollowerA")
+- `bool success` - `True` if the turtle reached the goal, `False` if it couldn't (e.g. goal was outside the grid)
+3. Configure CMakeLists.txt
+```
+# Go to directory
+cd ~/com760_ws/src/com760cw1_b00835055
+
+# Edit file
+gedit CMakeLists.txt
+
+# Add/Replace 
+add_message_files(
+  FILES
+  B00835055LeaderMessage.msg
+)
+
+# Add/Replace 
+add_service_files(
+  FILES
+  B00835055GoToTarget.srv
+)
+
+# Add/Replace
+generate_messages(DEPENDENCIES
+  geometry_msgs  std_msgs
+)
+
+# Add/Replace
+catkin_package(
+  CATKIN_DEPENDS rospy std_msgs geometry_msgs turtlesim tf message_runtime
+)
+```
+- `add_message_files` - Based from W3Lecture, generates services in the `msg` folder
+- `add_service_files` - Based from W3Lecture, generates services in the `srv` folder
+- `generate_messages` - Based from W3Lecture, generates added messages and services with any dependencies
+- `catkin_package` - Based from W3Lecture, macro generates cmake config files for your package, 
+4. Configure/Check package.xml
+```
+# Go to directory
+cd ~/com760_ws/src/com760cw1_b00835055
+
+# Edit file
+gedit package.xml
+
+# Check or Add:
+<build_depend>message_generation</build_depend>
+<exec_depend>message_runtime</exec_depend>
+```
+- `add_message_files` - Based from W3Lecture, generates services in the `msg` folder 
+- 
+5. Write the Go-To-Target Service Node
+```
+# Go to directory
+cd ~/com760_ws/src/com760cw1_b00835055/scripts
+
+# Create file
+go_to_target_service.py
+
+# Add in file:
+#!/usr/bin/env python3
+"""
+Provides a service that moves a named turtle to a goal position using a proportional controller
+
+References:
+- W2 Lecture: Proportional controller for linear speed and angular velocity
+- W3 Practical Part B: Navigation as a service (TurtleGoal.srv)
+- W4 Lecture Slide 26: The Proportional Controller with tf
+- ROS Wiki: http://wiki.ros.org/turtlesim/Tutorials/Go%20to%20Goal
+"""
+
+import rospy
+import math
+from geometry_msgs.msg import Twist
+from turtlesim.msg import Pose
+from com760cw1_b00835055.srv import B00835055GoToTarget, B00835055GoToTargetResponse
+
+class GoToTargetService:
+    def __init__(self):
+        # Initialise the ROS node for this service
+        rospy.init_node('go_to_target_service')
+
+        # Current pose storage which is updated by subscriber callbacks
+        self.poses = {} # Dictionary storing latest pose for each turtle
+
+        # Register the service
+        # Source: W3 Lecture
+        rospy.Service('go_to_target', B00835055GoToTarget, self.handle_go_to_target) # Call "go_to_target" with turtle name & goal
+        rospy.loginfo("Go-to-target service is ready")
+        rospy.spin() # Keep the node alive
+    
+    # Callback that stores the latest pose for a given turtle
+    def pose_callback(self, data, turtle_name):
+        self.poses[turtle_name] = data # Store
+        
+    # Service handler to move requested turtle to the goal position
+    def handle_go_to_target(self, req):
+        turtle_name = req.turtle_name
+        goal_x = req.goal_x
+        goal_y = req.goal_y
+        tolerance = req.tolerance
+
+        rospy.loginfo("Request: Move %s to (%.2f, %.2f) with tolerance %.2f",
+                      turtle_name, goal_x, goal_y, tolerance)
+
+        # Validate the goal, must be within turtlesim bounds (0 to 11)
+        # Source:
+        if goal_x < 0 or goal_x > 11 or goal_y < 0 or goal_y > 11:
+            rospy.logwarn("Goal (%.2f, %.2f) is outside turtlesim bounds!", goal_x, goal_y)
+            return B00835055GoToTargetResponse(False)
+
+        # Subscribe to this turtle's pose topic
+        # Each turtle has its own /turtleName/pose topic
+        rospy.Subscriber('/%s/pose' % turtle_name, Pose,
+                         self.pose_callback, turtle_name)
+
+        # Create a publisher for this turtle's velocity commands
+        pub = rospy.Publisher('/%s/cmd_vel' % turtle_name, Twist, queue_size=10)
+
+        # Wait until the first pose is received
+        rate = rospy.Rate(10)
+        while turtle_name not in self.poses and not rospy.is_shutdown():
+            rate.sleep()
+
+        # Proportional controller
+        # Source: W2 Lecture 
+        # The formulas from the lecture slide:
+        # theta* = atan2(y* - y, x* - x)       (desired heading)
+        # v = Kv * sqrt((x*-x)^2 + (y*-y)^2)   (linear speed)
+        # omega = Kh * (theta* - theta)        (angular speed)
+        #
+        # Kv and Kh are proportional gain constants
+        # Larger values = faster but less stable movement
+
+        Kv = 1.5 # Linear speed gain
+        Kh = 6.0 # Angular speed gain
+
+        while not rospy.is_shutdown():
+            pose = self.poses[turtle_name]
+
+            # Calculate distance to goal (Euclidean distance)
+            distance = math.sqrt((goal_x - pose.x) ** 2 + (goal_y - pose.y) ** 2)
+
+            # Check if close enough
+            if distance < tolerance:
+                # Stop the turtle
+                pub.publish(Twist())
+                rospy.loginfo("%s reached goal (%.2f, %.2f)!", turtle_name, goal_x, goal_y)
+                return B00835055GoToTargetResponse(True)
+
+            # Calculate desired heading angle using atan2
+            # Source: W2 Lecture
+            # Source: W4 Lecture Slide 26
+            desired_angle = math.atan2(goal_y - pose.y, goal_x - pose.x)
+
+            # Calculate the angle difference
+            angle_diff = desired_angle - pose.theta
+
+            # Normalise angle to [-pi, pi] to prevent spinning the long way round
+            angle_diff = math.atan2(math.sin(angle_diff), math.cos(angle_diff))
+
+            # Apply proportional controller
+            vel_msg = Twist()
+            vel_msg.linear.x = Kv * distance # Move faster whem far away
+            vel_msg.angular.z = Kh * angle_diff # Rotate proportionally to angle error
+
+            # Clamp linear speed to prevent the turtle going too fast
+            vel_msg.linear.x = min(vel_msg.linear.x, 3.0)
+	    
+	    # Publish velocity command
+            pub.publish(vel_msg)
+            rate.sleep()
+
+        return B00835055GoToTargetResponse(False)
+
+if __name__ == '__main__':
+    try:
+        GoToTargetService()
+    except rospy.ROSInterruptException:
+        pass
+```
+- This is the proportional controller wrapped in a service, it's how turtles navigate to positions
+- Explaination of proportional controller (Source: W2Lecture):
+    - You're standing in a field and someone tells you to walk to a flag. You instinctively do two things: you turn to face the flag and you walk towards it. As you get closer, you slow down so you don't overshoot. That's exactly what the proportional controller does.
+- Explaination of maths:
+    - Step 1, where should I face - `θ* = atan2(y* - y, x* - x)`. This calculates the angle from the turtle's current position (x, y) to the goal (x*, y*). `atan2` is used instead of `atan` because `atan2` correctly handles all four quadrants; it knows the difference between "goal is ahead-left" and "goal is behind-right. Source W4Lecture
+    - Step 2, How fast should I move forward - `v = Kv × √((x* - x)² + (y* - y)²)`. Linear speed is proportional to the distance to the goal. Far away = move fast. Close = move slowly. `Kv` is the gain constant that controls how aggressive this is.
+    - Step 3, How fast should I turn - `ω = Kh × (θ* - θ)`. Angular speed is proportional to the angle error - the difference between where the turtle is facing (0) and where it should face (θ*). Big angle difference = turn quickly. Almost facing the right way = turn gently. `Kh` is the angular gain constant.
+- Make script executable (goes from white to green) - chmod +x go_to_target_service.py
+6. Write the Leader Node
+```
+# Go to directory
+cd ~/com760_ws/src/com760cw1_b00835055/scripts
+
+# Create file
+gedit leader_node.py
+
+# Add in file:
+#!/usr/bin/env python3
+"""
+Commands the leader turtle to turn to a random direction then move
+forward until hitting the boundary. Publishes the custom LeaderMessage
+
+References:
+- W2 Practical Part C:
+- W2 Lecture: Publisher, Subscriber patterns
+- W4 Practical Part A: 
+"""
+
+import rospy
+import random
+import math
+from geometry_msgs.msg import Twist
+from turtlesim.msg import Pose
+from com760cw1_b00835055.msg import B00835055LeaderMessage
+
+class LeaderNode:
+    def __init__(self):
+    	# Initialise ROS node
+        rospy.init_node('leader_node')
+
+        # Get leader name from parameter or use default
+        self.leader_name = rospy.get_param('~leader_name', 'B00835055Leader')
+
+        # Current pose of the leader
+        self.pose = None
+
+        # Boundary limits (turtlesim is ~11x11, stay away from edges)
+        self.BOUNDARY_MIN = 0.5
+        self.BOUNDARY_MAX = 10.5
+
+        # Publisher for velocity commands
+        # Source: W2 Lecture
+        self.vel_pub = rospy.Publisher(
+            '/%s/cmd_vel' % self.leader_name, Twist, queue_size=10)
+
+        # Publisher for custom leader message (followers subscribe to this)
+        self.leader_msg_pub = rospy.Publisher(
+            '/leader_message', B00835055LeaderMessage, queue_size=10)
+
+        # Subscribe to leaders pose to monitor position
+        # Source: W2 Practical
+        rospy.Subscriber(
+            '/%s/pose' % self.leader_name, Pose, self.pose_callback)
+
+        # Wait for first pose
+        rospy.loginfo("Leader node waiting for pose data...")
+        while self.pose is None and not rospy.is_shutdown():
+            rospy.sleep(0.1)
+
+        rospy.loginfo("Leader node started for: %s", self.leader_name)
+        self.run()
+    
+    # Store the latest pose from the turtlesim
+    def pose_callback(self, data):
+        self.pose = data # Store 
+        
+    # Publish a custom leader message on the /leader_message topic
+    # Source: W3 Practical Part C - custom message definition
+    def publish_leader_message(self, instruction_id, message):
+        instructionID: 0 = Formation, 1 = Return # 0 = Formation mode, 1 = Return / Boundary hit
+        msg = B00835055LeaderMessage()
+        msg.instructionID = instruction_id
+        msg.message = message
+        self.leader_msg_pub.publish(msg)
+
+    # Check if the leader is close to any wall
+    def is_near_boundary(self):
+        if self.pose is None:
+            return False
+        return (self.pose.x <= self.BOUNDARY_MIN or
+                self.pose.x >= self.BOUNDARY_MAX or
+                self.pose.y <= self.BOUNDARY_MIN or
+                self.pose.y >= self.BOUNDARY_MAX)
+                
+    # Turn the leader to face a specific angle
+    # Uses the proportional controller for angular velocity
+    # Source: W2 Lecture - Proportional controller for angular velocity
+    def turn_to_angle(self, target_angle):
+        rate = rospy.Rate(10)
+        Kh = 6.0 # Angular gain
+
+        while not rospy.is_shutdown():
+            # Angle difference between target and current heading
+            angle_diff = target_angle - self.pose.theta
+            # Normalise to [-pi, pi]
+            angle_diff = math.atan2(math.sin(angle_diff), math.cos(angle_diff))
+	    
+	    # Stop turning when close enough
+            if abs(angle_diff) < 0.05: # Close enough
+                self.vel_pub.publish(Twist()) # Stop rotation
+                return
+            
+            # Apply proportional angular velocity
+            vel_msg = Twist()
+            vel_msg.angular.z = Kh * angle_diff
+            self.vel_pub.publish(vel_msg)
+            rate.sleep()
+            
+    # Main loop: turn to random direction, move forward until boundary then repeat.
+    # Source: W4 Practical Part A
+    def run(self):
+        rate = rospy.Rate(10)
+
+        while not rospy.is_shutdown():
+            # Phase 1: Turn to a random direction
+            random_angle = random.uniform(-math.pi, math.pi)
+            rospy.loginfo("Leader turning to angle: %.2f radians", random_angle)
+            self.publish_leader_message(0, "Turning to new direction")
+            self.turn_to_angle(random_angle)
+
+            # Phase 2: Move forward until hitting boundary
+            rospy.loginfo("Leader moving forward in formation mode")
+            self.publish_leader_message(0, "Formation mode - moving forward")
+
+            while not rospy.is_shutdown() and not self.is_near_boundary():
+                vel_msg = Twist()
+                vel_msg.linear.x = 2.0 # Forward speed
+                self.vel_pub.publish(vel_msg)
+
+                # Keep publishing the leader message so followers know the state
+                self.publish_leader_message(0, "Formation mode - moving forward")
+                rate.sleep()
+
+            # Phase 3: Hit boundary, stop and notify
+            self.vel_pub.publish(Twist()) # Stop movement
+            rospy.loginfo("Leader hit boundary at (%.2f, %.2f)",
+                          self.pose.x, self.pose.y)
+            self.publish_leader_message(1, "Hit boundary - changing direction")
+            rospy.sleep(1) # Brief pause before turning again
+
+if __name__ == '__main__':
+    try:
+        LeaderNode()
+    except rospy.ROSInterruptException:
+        pass
+```
+- The leader runs in a continuous loop with three phases:
+    - Phase 1: it picks a random angle between -π and π (any direction) and turns to face that way using the proportional controller for angular velocity
+    - Phase 2: it moves straight forward at constant speed, continuously publishing the custom `B00835055LeaderMessage` with `instructionID=0` (formation mode). It also monitors its own position via the pose subscriber
+    - Phase 3: when it detects it's near a boundary (x or y less than 0.5 or greater than 10.5), it stops, publishes instructionID=1 (return/change direction), pauses briefly then loops back to Phase 1 to pick a new random direction
+- Make script executable (goes from white to green - ls ) - chmod +x leader_node.py
+7. Update the Launch File
+```
+# Go to directory
+cd ~/com760_ws/src/com760cw1_b00835055/launch
+
+# Edit file
+gedit setup.launch
+
+# Update file:
+<launch>
+    <!-- Launch the turtlesim simulator -->
+    <node pkg="turtlesim" type="turtlesim_node" name="turtlesim"/>
+
+    <!-- Setup: random background, kill turtle1, spawn leader + followers -->
+    <node pkg="com760cw1_b00835055" type="setup_turtlesim.py"
+          name="setup_turtlesim" output="screen"/>
+
+    <!-- Go-to-target navigation service -->
+    <node pkg="com760cw1_b00835055" type="go_to_target_service.py"
+          name="go_to_target_service" output="screen"
+          launch-prefix="bash -c 'sleep 5; $0 $@'"/>
+
+    <!-- Leader control node -->
+    <node pkg="com760cw1_b00835055" type="leader_node.py"
+          name="leader_node" output="screen"
+          launch-prefix="bash -c 'sleep 6; $0 $@'"/>
+</launch>            
+```
+- The `launch-prefix="bash -c 'sleep 5; $0 $@'"` trick delays those nodes so the setup script finishes first (spawning turtles) before the leader tries to move   
