@@ -154,7 +154,18 @@ class LeaderNode:
             random_angle = self.get_safe_random_angle()
             rospy.loginfo("Leader turning to angle: %.2f radians", random_angle)
             self.turn_to_angle(random_angle)
-
+            
+            # Fix bug where leader gets stuck at the edge
+            # Nudge forward to escape the boundry zone
+            nudge_count = 0
+            while not rospy.is_shutdown() and self.is_near_boundary() and nudge_count < 20:
+                vel_msg = Twist()
+                vel_msg.linear.x = 1.5
+                self.vel_pub.publish(vel_msg)
+                self.publish_leader_message(1, "Escaping boundary zone")
+                nudge_count += 1
+                rate.sleep()
+            
             # Phase 2: Move forward until hitting boundary
             rospy.loginfo("Leader moving forward in formation mode")
 
