@@ -4,3 +4,5 @@ float32 tolerance
 string turtle_name
 ---
 bool success
+string status_message
+float32 final_distance
