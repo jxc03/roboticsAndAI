@@ -115,28 +115,107 @@ git commit -m "Adding Git"
 git push
 ```
 
-## Launch Files, Services & Spawning
+## The first script and launch file
 
-1. Create first launch file
+1. Create script file
 ```
-cd ~/com760_ws/src/com760cw1_b00835055/launch
-gedit turtlesim_basics.launch # Creates file
+# Go to directory
+cd ~/com760_ws/src/com760cw1_b00835055/scripts 
+
+# Create Python file
+gedit setup_turtlesim.py
+
+# Code
+import rospy
+import random
+import math
+from std_srvs.srv import Empty
+from turtlesim.srv import Spawn, Kill, SetPen
+
+def setup():
+    rospy.init_node('setup_turtlesim')
+
+    rospy.set_param('/turtlesim/background_r', random.randint(0, 255))
+    rospy.set_param('/turtlesim/background_g', random.randint(0, 255))
+    rospy.set_param('/turtlesim/background_b', random.randint(0, 255))
+
+    rospy.wait_for_service('/clear')
+    clear = rospy.ServiceProxy('/clear', Empty)
+    clear()
+    rospy.loginfo("Background colour set to random RGB values")
+
+    rospy.wait_for_service('/kill')
+    kill = rospy.ServiceProxy('/kill', Kill)
+    try:
+        kill('turtle1')
+        rospy.loginfo("Killed default turtle1")
+    except rospy.ServiceException as e:
+        rospy.logwarn("Could not kill turtle1: %s", e)
+
+    rospy.wait_for_service('/spawn')
+    spawn = rospy.ServiceProxy('/spawn', Spawn)
+
+    leader_name = 'B00835055Leader'
+    spawn(5.544, 5.544, 0.0, leader_name)
+    rospy.loginfo("Spawned leader: %s at centre (5.544, 5.544)", leader_name)
+
+    followerA_name = 'B00835055FollowerA'
+    followerB_name = 'B00835055FollowerB'
+
+    spawn(
+        random.uniform(1.0, 10.0),       
+        random.uniform(1.0, 10.0),        
+        random.uniform(0, 2 * math.pi),     
+        followerA_name
+    )
+    rospy.loginfo("Spawned follower: %s at random position", followerA_name)
+
+    spawn(
+        random.uniform(1.0, 10.0),
+        random.uniform(1.0, 10.0),
+        random.uniform(0, 2 * math.pi),
+        followerB_name
+    )
+    rospy.loginfo("Spawned follower: %s at random position", followerB_name)
+
+    pen_service_name = '/%s/set_pen' % leader_name
+    rospy.wait_for_service(pen_service_name)
+    set_pen = rospy.ServiceProxy(pen_service_name, SetPen)
+    set_pen(255, 0, 0, 3, 0)  # r=255, g=0, b=0, width=3, off=0 (pen ON)
+    rospy.loginfo("Set leader pen to red")
+
+if __name__ == '__main__':
+    try:
+        setup()
+    except rospy.ROSInterruptException:
+        pass
 ```
-2. Type into the editor/file
-```
-<launch>
-    <!-- Launch the turtlesim simulator -->
-    <node pkg="turtlesim" type="turtlesim_node" name="turtlesim"/>
-    
-    <!-- Launch keyboard teleop in its own terminal window -->
-    <node pkg="turtlesim" type="turtle_teleop_key" name="teleop" 
-          output="screen" launch-prefix="gnome-terminal --"/>
-</launch>
-```
-- 
 - To edit file `nano FILENAME.launch`
-3. Save and close then stop all runing nodes and test the launch file
+- Make it executable by `chmod +x setup_turtlesim.py`
+3. Create launch file
 ```
-roslaunch com760cw1_yb00835055 turtlesim_basics.launch
+# Go to directory
+cd ~/com760_ws/src/com760cw1_b00835055/launch
+
+# Create launch file
+gedit setup.launch
+
+# Code
+<launch>
+    <!-- Launch the turtlesim simulator first -->
+    <node pkg="turtlesim" type="turtlesim_node" name="turtlesim"/>
+
+    <!-- Run our setup script (kills turtle1, spawns leader + followers) -->
+    <node pkg="com760cw1_b00835055" type="setup_turtlesim.py" 
+          name="setup_turtlesim" output="screen"/>
+</launch>
+
+# Build and test
+cd ~/com760_ws
+catkin_make
+source devel/setup.bash
+roslaunch com760cw1_b00835055 setup.launch
+
 ```
-- `roslaunch` starts automatically if it's not already running, both smilulator and teleop should appear
+- `roslaunch` starts automatically if it's not already running, 3 turtles should appear
+- Ensure indentation is 4, check for green spaces on `nano`
