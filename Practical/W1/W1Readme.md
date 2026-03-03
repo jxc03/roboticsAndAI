@@ -76,10 +76,8 @@ rostopic pub -r 1 /turtle1/cmd_vel geometry_msgs/Twist \
 rosservice list
 ```
 - The important ones for CW1 are: <br>
-| Left         | Centered         | Right                      |
-| :-----------: | :--------------: | :-------------------------: |
-| /spawn | Text is centered | And this is right-aligned  |
-| /kill    | Even more text   | And even more to the right |
-| /reset    | Even more text   | And even more to the right |
-| /clear    | Even more text   | And even more to the right |
-| /turtle1/set_pan    | Even more text   | And even more to the right |
+    - /spawn - creates a new turtle
+    - /kill - removes a turtle
+    - /reset - resets the simulator
+    - /clear - clears pen trails & reloads params
+    - /turtle1/set_pan - changes pen colour/width
