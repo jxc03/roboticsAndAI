@@ -35,6 +35,9 @@ class LeaderNode:
         self.FORWARD_SPEED = 2.0
         self.TURN_GAIN = 6.0
         
+        # Track how many boundary hits (for logging/vodcast)
+        self.boundary_hit_count = 0
+        
         # Publisher for velocity commands
         # Source: W2 Lecture
         self.vel_pub = rospy.Publisher(
@@ -59,8 +62,8 @@ class LeaderNode:
     
     # Store the latest pose from the turtlesim
     def pose_callback(self, data):
-        self.pose = data # Store 
-        
+        self.pose = data # Store
+    
     # Publish a custom leader message on the /leader_message topic
     # Source: W3 Practical Part C - custom message definition
     # instructionID: 0 = Formation, 1 = Return # 0 = Formation mode, 1 = Return / Boundary hit
@@ -84,7 +87,7 @@ class LeaderNode:
                 self.pose.x >= self.BOUNDARY_MAX or
                 self.pose.y <= self.BOUNDARY_MIN or
                 self.pose.y >= self.BOUNDARY_MAX)
-                
+    
     # Turn the leader to face a specific angle
     # Uses the proportional controller for angular velocity
     # Source: W2 Lecture - Proportional controller for angular velocity
@@ -105,16 +108,16 @@ class LeaderNode:
             
             # Apply proportional angular velocity
             vel_msg = Twist()
-            vel_msg.angular.z = Kh * angle_diff
+            vel_msg.angular.z = self.TURN_GAIN * angle_diff
             self.vel_pub.publish(vel_msg)
             
             # Publish turning instruction while rotating
             self.publish_leader_message(1, "Turning to new direction")
             rate.sleep()
-            
+    
     # Pick a random angle that points AWAY from the nearest wall
     # This prevents the leader from immediately hitting the same wall again after turning
-    # Additional feature: smarter direction selection.        
+    # Additional feature: smarter direction selection.
     def get_safe_random_angle(self):
 
         # Determine which walls are close
@@ -140,7 +143,7 @@ class LeaderNode:
             angle_max = min(angle_max, -0.1)
 
         return random.uniform(angle_min, angle_max)
-         
+    
     # Main loop: turn to random direction, move forward until boundary then repeat.
     # Source: W4 Practical Part A
     def run(self):
@@ -150,12 +153,10 @@ class LeaderNode:
             # Phase 1: Turn to a random direction
             random_angle = self.get_safe_random_angle()
             rospy.loginfo("Leader turning to angle: %.2f radians", random_angle)
-            # self.publish_leader_message(0, "Turning to new direction")
             self.turn_to_angle(random_angle)
 
             # Phase 2: Move forward until hitting boundary
             rospy.loginfo("Leader moving forward in formation mode")
-            # self.publish_leader_message(0, "Formation mode - moving forward")
 
             while not rospy.is_shutdown() and not self.is_near_boundary():
                 vel_msg = Twist()
@@ -171,14 +172,14 @@ class LeaderNode:
             self.boundary_hit_count += 1
             rospy.loginfo("Leader hit boundary #%d at (%.2f, %.2f)",
                           self.boundary_hit_count, self.pose.x, self.pose.y)
-                          
-            # Publish stop instruction (ID=2) briefly             
+            
+            # Publish stop instruction (ID=2) briefly
             self.publish_leader_message(2, "Stopped at boundry")
-            rospy.sleep(0.5) # Brief pause before turn  ing again
-	    
-	     # Then publish turning instruction (ID=1)
-	     self.publish_leader_message(1, "Changing direction after boundary hit")
-	     rospy.sleep(0.5)
+            rospy.sleep(0.5) # Brief pause before turning again
+            
+            # Then publish turning instruction (ID=1)
+            self.publish_leader_message(1, "Changing direction after boundary hit") 
+            rospy.sleep(0.5)
             
 if __name__ == '__main__':
     try:

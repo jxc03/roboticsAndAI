@@ -67,6 +67,20 @@ def setup(): # Defining function
     set_pen(255, 0, 0, 3, 0) # r=255, g=0, b=3. off=0 (pen ON)
     rospy.loginfo("Set leader pen to red")
     
+    # Set follower A pen to green
+    pen_a_name = '/%s/set_pen' % followerA_name
+    rospy.wait_for_service(pen_a_name)
+    set_pen_a = rospy.ServiceProxy(pen_a_name, SetPen)
+    set_pen_a(0, 255, 0, 2, 0)  # Green pen, width 2
+    rospy.loginfo("Set follower A pen to green")
+
+    # Set follower B pen to blue
+    pen_b_name = '/%s/set_pen' % followerB_name
+    rospy.wait_for_service(pen_b_name)
+    set_pen_b = rospy.ServiceProxy(pen_b_name, SetPen)
+    set_pen_b(0, 0, 255, 2, 0)  # Blue pen, width 2
+    rospy.loginfo("Set follower B pen to blue")
+    
 if __name__ == '__main__':
     try:
         setup()

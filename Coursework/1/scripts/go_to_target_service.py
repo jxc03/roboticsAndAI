@@ -32,7 +32,7 @@ class GoToTargetService:
     # Callback that stores the latest pose for a given turtle
     def pose_callback(self, data, turtle_name):
         self.poses[turtle_name] = data # Store
-        
+    
     # Service handler to move requested turtle to the goal position
     def handle_go_to_target(self, req):
         turtle_name = req.turtle_name
@@ -46,8 +46,12 @@ class GoToTargetService:
         # Validate the goal, must be within turtlesim bounds (0 to 11)
         # Source:
         if goal_x < 0 or goal_x > 11 or goal_y < 0 or goal_y > 11:
-            rospy.logwarn("Goal (%.2f, %.2f) is outside turtlesim bounds!", goal_x, goal_y)
-            return B00835055GoToTargetResponse(False)
+            rospy.logwarn("Goal out of bounds!")
+            return B00835055GoToTargetResponse(
+                success=False,
+                status_message="Goal (%.2f, %.2f) is outside turtlesim bounds (0-11)" % (goal_x, goal_y),
+                final_distance=-1.0
+            )
 
         # Subscribe to this turtle's pose topic
         # Each turtle has its own /turtleName/pose topic
@@ -59,11 +63,19 @@ class GoToTargetService:
 
         # Wait until the first pose is received
         rate = rospy.Rate(10)
+        timeout_counter = 0
         while turtle_name not in self.poses and not rospy.is_shutdown():
+            timeout_counter += 1
+            if timeout_counter > 50: # 5 seconds at 10Hz
+                return B00835055GoToTargetResponse(
+                    success=False,
+                    status_message="Timeout: Could not get pose for %s" % turtle_name,
+                    final_distance=-1.0
+                )
             rate.sleep()
 
         # Proportional controller
-        # Source: W2 Lecture 
+        # Source: W2 Lecture
         # The formulas from the lecture slide:
         # theta* = atan2(y* - y, x* - x)       (desired heading)
         # v = Kv * sqrt((x*-x)^2 + (y*-y)^2)   (linear speed)
@@ -74,44 +86,57 @@ class GoToTargetService:
 
         Kv = 1.5 # Linear speed gain
         Kh = 6.0 # Angular speed gain
-
-        while not rospy.is_shutdown():
+        MAX_SPEED = 3.0
+        MAX_ITERATIONS = 2000  # Safety limit to prevent infinite loops
+        
+        iterations = 0
+        while not rospy.is_shutdown() and iterations < MAX_ITERATIONS:
             pose = self.poses[turtle_name]
-
             # Calculate distance to goal (Euclidean distance)
-            distance = math.sqrt((goal_x - pose.x) ** 2 + (goal_y - pose.y) ** 2)
-
+            distance = math.sqrt((goal_x - pose.x) ** 2 + (goal_y - pose.y) ** 2)   
+            
             # Check if close enough
             if distance < tolerance:
                 # Stop the turtle
                 pub.publish(Twist())
-                rospy.loginfo("%s reached goal (%.2f, %.2f)!", turtle_name, goal_x, goal_y)
-                return B00835055GoToTargetResponse(True)
+                rospy.loginfo("%s reached goal! Final distance: %.4f", turtle_name, distance)
+                return B00835055GoToTargetResponse(
+                    success=True,
+                    status_message="Reached goal (%.2f, %.2f) successfully" % (goal_x, goal_y),
+                    final_distance=distance
+                )
 
             # Calculate desired heading angle using atan2
             # Source: W2 Lecture
             # Source: W4 Lecture Slide 26
             desired_angle = math.atan2(goal_y - pose.y, goal_x - pose.x)
-
+            
             # Calculate the angle difference
             angle_diff = desired_angle - pose.theta
-
+            
             # Normalise angle to [-pi, pi] to prevent spinning the long way round
             angle_diff = math.atan2(math.sin(angle_diff), math.cos(angle_diff))
 
             # Apply proportional controller
             vel_msg = Twist()
-            vel_msg.linear.x = Kv * distance # Move faster whem far away
+            vel_msg.linear.x = min(Kv * distance, MAX_SPEED) # Move faster whem far away
             vel_msg.angular.z = Kh * angle_diff # Rotate proportionally to angle error
-
-            # Clamp linear speed to prevent the turtle going too fast
-            vel_msg.linear.x = min(vel_msg.linear.x, 3.0)
 	    
 	    # Publish velocity command
             pub.publish(vel_msg)
+            iterations += 1
             rate.sleep()
-
-        return B00835055GoToTargetResponse(False)
+            
+	# If, Will time out
+        pub.publish(Twist())
+        final_dist = math.sqrt(
+            (goal_x - self.poses[turtle_name].x) ** 2 +
+            (goal_y - self.poses[turtle_name].y) ** 2)
+        return B00835055GoToTargetResponse(
+            success=False,
+            status_message="Timeout after %d iterations. Final distance: %.2f" % (iterations, final_dist),
+            final_distance=final_dist
+        )
 
 if __name__ == '__main__':
     try:
