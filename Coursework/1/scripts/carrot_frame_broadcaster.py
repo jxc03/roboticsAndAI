@@ -23,11 +23,15 @@ def broadcast_carrot_frames():
     br = tf2_ros.TransformBroadcaster()
 
     # Formation offsets relative to the leader
-    # These define the formation shape
-    # Negative x = behind the leader, y = left/right offset
+    # In the leader's local frame:
+    # +x = in front of the leader
+    # +y = to the LEFT of the leader
+    # -y = to the RIGHT of the leader
+    #
+    # CW1 Step 4
     carrot_offsets = {
-        'carrot_followerA': {'x': -2.0, 'y': 1.5}, # Behind and to the left
-        'carrot_followerB': {'x': -2.0, 'y': -1.5}, # Behind and to the right
+        'carrot_followerA': {'x': 0.0, 'y': 1.0}, # 1m to the left
+        'carrot_followerB': {'x': 0.0, 'y': -1.0}, # 1m to the right
     }
 
     # Broadcast
