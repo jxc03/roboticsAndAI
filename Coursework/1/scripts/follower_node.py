@@ -29,7 +29,7 @@ class FollowerNode:
 
         # Proportional controller gains
         # Source: W4 Lecture Slide 26
-        self.Kv = 0.5
+        self.Kv = 1.5
         self.Kh = 4.0
 
         # Publisher for velocity commands

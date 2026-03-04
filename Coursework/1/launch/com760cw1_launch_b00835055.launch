@@ -1,0 +1,59 @@
+<launch>
+    <!-- Launch turtlesim simulator -->
+    <node pkg="turtlesim" type="turtlesim_node" name="turtlesim"/>
+
+    <!-- Setup: random background, spawn leader + followers -->
+    <node pkg="com760cw1_b00835055" type="setup_turtlesim.py"
+          name="setup_turtlesim" output="screen"/>
+
+    <!-- tf broadcasters for each turtle -->
+    <node pkg="com760cw1_b00835055" type="turtle_tf_broadcaster.py"
+          name="leader_tf_broadcaster" output="screen"
+          launch-prefix="bash -c 'sleep 4; $0 $@'">
+        <param name="turtle_name" value="B00835055Leader"/>
+    </node>
+
+    <node pkg="com760cw1_b00835055" type="turtle_tf_broadcaster.py"
+          name="followerA_tf_broadcaster" output="screen"
+          launch-prefix="bash -c 'sleep 4; $0 $@'">
+        <param name="turtle_name" value="B00835055FollowerA"/>
+    </node>
+
+    <node pkg="com760cw1_b00835055" type="turtle_tf_broadcaster.py"
+          name="followerB_tf_broadcaster" output="screen"
+          launch-prefix="bash -c 'sleep 4; $0 $@'">
+        <param name="turtle_name" value="B00835055FollowerB"/>
+    </node>
+
+    <!-- Carrot frame broadcaster, formation offsets -->
+    <node pkg="com760cw1_b00835055" type="carrot_frame_broadcaster.py"
+          name="carrot_broadcaster" output="screen"
+          launch-prefix="bash -c 'sleep 5; $0 $@'"/>
+
+    <!-- Go-to-target navigation service -->
+    <node pkg="com760cw1_b00835055" type="go_to_target_service.py"
+          name="go_to_target_service" output="screen"
+          launch-prefix="bash -c 'sleep 5; $0 $@'"/>
+
+    <!-- Leader control node -->
+    <node pkg="com760cw1_b00835055" type="leader_node.py"
+          name="leader_node" output="screen"
+          launch-prefix="bash -c 'sleep 7; $0 $@'">
+        <param name="leader_name" value="B00835055Leader"/>
+    </node>
+
+    <!-- Follower nodes -->
+    <node pkg="com760cw1_b00835055" type="follower_node.py"
+          name="followerA_node" output="screen"
+          launch-prefix="bash -c 'sleep 7; $0 $@'">
+        <param name="follower_name" value="B00835055FollowerA"/>
+        <param name="carrot_frame" value="carrot_followerA"/>
+    </node>
+
+    <node pkg="com760cw1_b00835055" type="follower_node.py"
+          name="followerB_node" output="screen"
+          launch-prefix="bash -c 'sleep 7; $0 $@'">
+        <param name="follower_name" value="B00835055FollowerB"/>
+        <param name="carrot_frame" value="carrot_followerB"/>
+    </node>
+</launch>

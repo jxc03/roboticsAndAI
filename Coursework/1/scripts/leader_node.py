@@ -164,27 +164,34 @@ class LeaderNode:
         # Check if both followers are within tolerance of their formation positions
         # CW1 Step 5: "Once the leader detects that the two followers are in the required formation position"
         # Formation: followerA 1m left, followerB 1m right of leader
-        if self.followerA_pose is None or self.followerB_pose is None:
-            return False
+        #if self.followerA_pose is None or self.followerB_pose is None:
+            #return False
 
         # Calculate where followers SHOULD be in world coordinates
         # 1m to the left in the leader's frame = rotate by leader's theta
         # Left of leader: leader_pos + 1m at angle (theta + pi/2)
-        targetA_x = self.pose.x + 1.0 * math.cos(self.pose.theta + math.pi / 2)
-        targetA_y = self.pose.y + 1.0 * math.sin(self.pose.theta + math.pi / 2)
+        #targetA_x = self.pose.x + 1.0 * math.cos(self.pose.theta + math.pi / 2)
+        #targetA_y = self.pose.y + 1.0 * math.sin(self.pose.theta + math.pi / 2)
 
         # Right of leader: leader_pos + 1m at angle (theta - pi/2)
-        targetB_x = self.pose.x + 1.0 * math.cos(self.pose.theta - math.pi / 2)
-        targetB_y = self.pose.y + 1.0 * math.sin(self.pose.theta - math.pi / 2)
+        #targetB_x = self.pose.x + 1.0 * math.cos(self.pose.theta - math.pi / 2)
+        #targetB_y = self.pose.y + 1.0 * math.sin(self.pose.theta - math.pi / 2)
 
         # Distance to ideal position
-        distA = math.sqrt((self.followerA_pose.x - targetA_x) ** 2 +
-                          (self.followerA_pose.y - targetA_y) ** 2)
-        distB = math.sqrt((self.followerB_pose.x - targetB_x) ** 2 +
-                          (self.followerB_pose.y - targetB_y) ** 2)
+        #distA = math.sqrt((self.followerA_pose.x - targetA_x) ** 2 + (self.followerA_pose.y - targetA_y) ** 2)
+        #distB = math.sqrt((self.followerB_pose.x - targetB_x) ** 2 + (self.followerB_pose.y - targetB_y) ** 2)
 
-        tolerance = 0.8 # Allow some tolerance
-        return distA < tolerance and distB < tolerance
+        #tolerance = 1.5 # Allow some tolerance
+        #return distA < tolerance and distB < tolerance
+        
+        # Simple method, trying to fix
+        if self.followerA_pose is None or self.followerB_pose is None:
+            return False
+        distA = math.sqrt((self.followerA_pose.x - self.pose.x) ** 2 +
+                          (self.followerA_pose.y - self.pose.y) ** 2)
+        distB = math.sqrt((self.followerB_pose.x - self.pose.x) ** 2 +
+                          (self.followerB_pose.y - self.pose.y) ** 2)
+        return distA < 2.5 and distB < 2.5
 
     # CW1 Step 7: "Teleport 2 followers to their initial position throughthe service (i.e. turtlesim/TeleportAbsolute) provided by ROS"
     def teleport_followers_to_initial(self):
@@ -209,9 +216,7 @@ class LeaderNode:
         rospy.loginfo("Teleported FollowerB to initial position (%.2f, %.2f)",
                       self.followerB_initial['x'], self.followerB_initial['y'])
 
-    # CW1 Step 7:  "The leader turtle returns to the center through the custom service defined above 
-                    (i.e. YourBcodeGoToTarget.srv). If the server fails to move the turtle to the goal location,
-                    the leader turtle should be teleported back to the center"
+    # CW1 Step 7:  "The leader turtle returns to the center through the custom service defined above (i.e. YourBcodeGoToTarget.srv). If the server fails to move the turtle to the goal location, the leader turtle should be teleported back to the center"
     def leader_return_to_centre(self):
         rospy.loginfo("Leader returning to centre via GoToTarget service...")
 
@@ -277,11 +282,24 @@ class LeaderNode:
             self.set_formation_pens()
 
             # Publish formation instruction repeatedly until followers arrive
-            formation_timeout = 0
-            while not rospy.is_shutdown() and not self.check_followers_in_formation():
+            #formation_timeout = 0
+            #while not rospy.is_shutdown() and not self.check_followers_in_formation():
+                #self.publish_leader_message(0, "Formation - move to position")
+                #formation_timeout += 1
+                #if formation_timeout > 500:  # 30 seconds timeout
+            
+            # Simple method, testing to fix
+            formation_start = rospy.get_time()
+            while not rospy.is_shutdown():
                 self.publish_leader_message(0, "Formation - move to position")
-                formation_timeout += 1
-                if formation_timeout > 300:  # 30 seconds timeout
+
+                # Check if followers are close enough
+                if self.check_followers_in_formation():
+                    rospy.loginfo("Followers in formation!")
+                    break
+
+                # Timeout after 15 seconds - proceed anyway
+                if rospy.get_time() - formation_start > 15.0:
                     rospy.logwarn("Formation timeout - proceeding anyway")
                     break
                 rate.sleep()
